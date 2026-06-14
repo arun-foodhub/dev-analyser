@@ -1,0 +1,85 @@
+{
+  "repos": [
+    {
+      "name": "customer_app_2.0",
+      "displayName": "Customer App",
+      "type": "frontend",
+      "technology": "react-native",
+      "gitUrl": "https://github.com/uktech/customer_app_2.0.git",
+      "localPath": "/Users/arun/Desktop/Workspace/customer_app_2.0",
+      "branches": ["main"],
+      "description": "Customer mobile app (React Native) — primary frontend",
+      "color": "#3B82F6",
+      "priority": "high",
+      "standalone": false
+    },
+    {
+      "name": "t2s-api",
+      "displayName": "T2S API",
+      "type": "backend",
+      "technology": "php-lumen",
+      "gitUrl": "https://github.com/uktech/t2s-api.git",
+      "localPath": "/Users/arun/Desktop/Workspace/t2s-api",
+      "branches": [],
+      "description": "Primary API service — Lumen/PHP, main backend for the customer app",
+      "notes": "Uses $router->get/post pattern. Routes in app/Http/v*/routes.php (versioned by date).",
+      "color": "#10B981",
+      "priority": "high",
+      "standalone": false
+    },
+    {
+      "name": "t2s-mcs",
+      "displayName": "T2S Microservices",
+      "type": "backend",
+      "technology": "nodejs",
+      "gitUrl": "https://github.com/uktech/t2s-mcs.git",
+      "localPath": "/Users/arun/Desktop/Workspace/t2s-mcs",
+      "branches": [],
+      "description": "Microservices layer — provides API endpoints for the customer app",
+      "color": "#8B5CF6",
+      "priority": "high",
+      "standalone": false
+    },
+    {
+      "name": "falcon",
+      "displayName": "Falcon",
+      "type": "backend",
+      "technology": "aws-cdk-ts",
+      "gitUrl": "https://github.com/uktech/falcon.git",
+      "localPath": "/Users/arun/Desktop/Workspace/falcon",
+      "branches": [],
+      "description": "Falcon — AWS CDK TypeScript, Lambda-backed API Gateway. Routes defined via addResource/addMethod CDK constructs.",
+      "notes": "Serverless architecture. Routes are CDK constructs, not Express routes. Scanner targets addResource/addMethod patterns.",
+      "color": "#F59E0B",
+      "priority": "high",
+      "standalone": false
+    },
+    {
+      "name": "falcon-payment-service",
+      "displayName": "Falcon Payment",
+      "type": "backend",
+      "technology": "nodejs-ts",
+      "gitUrl": "https://github.com/uktech/falcon-payment-service.git",
+      "localPath": "/Users/arun/Desktop/Workspace/falcon-payment-service",
+      "branches": [],
+      "description": "Payment microservice — handles all payment flows",
+      "color": "#EF4444",
+      "priority": "medium",
+      "standalone": false
+    },
+    {
+      "name": "foodhubglobal",
+      "displayName": "FoodHub Global (Monolith)",
+      "type": "monolith",
+      "technology": "php",
+      "gitUrl": "https://github.com/uktech/foodhubglobal.git",
+      "localPath": "/Users/arun/Desktop/Workspace/foodhubglobal",
+      "branches": [],
+      "description": "Standalone monolith — both frontend and backend in same repo. NOT connected to any other repo.",
+      "color": "#6B7280",
+      "priority": "low",
+      "standalone": true,
+      "notes": "This repo is completely independent. Do not assume any API integration with t2s-api, falcon, or the customer app."
+    }
+  ]
+}

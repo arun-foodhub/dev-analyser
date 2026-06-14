@@ -1,0 +1,22 @@
+{
+  "name": "dev-analyser",
+  "version": "1.0.0",
+  "description": "FoodHub platform dev analysis tool — API endpoints + module dashboard",
+  "scripts": {
+    "dev": "concurrently -n \"API,UI\" -c \"cyan,magenta\" \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && node server.js",
+    "backend:dev": "cd backend && node --watch server.js",
+    "frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && NODE_ENV=production node server.js",
+    "scan": "cd backend && node cli.js scan",
+    "scan:endpoints": "cd backend && node cli.js scan:endpoints",
+    "scan:modules": "cd backend && node cli.js scan:modules",
+    "status": "cd backend && node cli.js status",
+    "setup": "npm install && cd backend && npm install && cd ../frontend && npm install && echo '\\n✅ Setup complete. Run: npm run dev'",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
