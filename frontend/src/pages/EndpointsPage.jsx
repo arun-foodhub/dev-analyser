@@ -4,8 +4,9 @@ import MethodBadge from '../components/MethodBadge.jsx';
 import ScanButton from '../components/ScanButton.jsx';
 
 const METHODS = ['ALL', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+const SKIP_VERSION_DIRS = ['v2018_06_12', 'v2019_08_27', 'v2020_10_05', 'v2021_02_25', 'v2022_05_05'];
 
-function EndpointRow({ ep, isExpanded, onToggle }) {
+function EndpointRow({ ep, isExpanded, onToggle, showRepo }) {
   return (
     <>
       <tr
@@ -18,9 +19,11 @@ function EndpointRow({ ep, isExpanded, onToggle }) {
         <td className="px-3 py-2 font-mono text-xs text-gray-200 max-w-xs">
           <span className="truncate block">{ep.path}</span>
         </td>
-        <td className="px-3 py-2">
-          <span className="text-xs text-gray-400">{ep.repo}</span>
-        </td>
+        {showRepo && (
+          <td className="px-3 py-2">
+            <span className="text-xs text-gray-400">{ep.repo}</span>
+          </td>
+        )}
         <td className="px-3 py-2">
           <span className="text-xs text-gray-500 font-mono truncate block max-w-xs">
             {ep.file}:{ep.line}
@@ -42,9 +45,8 @@ function EndpointRow({ ep, isExpanded, onToggle }) {
 
       {isExpanded && (
         <tr className="bg-gray-900/80 border-b border-gray-800">
-          <td colSpan={6} className="px-4 py-3">
+          <td colSpan={showRepo ? 6 : 5} className="px-4 py-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-
               <div>
                 <div className="text-gray-500 uppercase tracking-wider text-xs mb-1">Details</div>
                 <div className="space-y-1 text-gray-400">
@@ -52,7 +54,7 @@ function EndpointRow({ ep, isExpanded, onToggle }) {
                   <div><span className="text-gray-500">Tech:</span> <span className="text-gray-200">{ep.technology || 'unknown'}</span></div>
                   <div><span className="text-gray-500">File:</span> <span className="font-mono text-sky-400">{ep.file}</span></div>
                   <div><span className="text-gray-500">Line:</span> <span className="text-gray-200">{ep.line}</span></div>
-                  <div><span className="text-gray-500">Normalized path:</span> <span className="font-mono text-gray-300">{ep.normalizedPath}</span></div>
+                  <div><span className="text-gray-500">Normalized:</span> <span className="font-mono text-gray-300">{ep.normalizedPath}</span></div>
                 </div>
               </div>
 
@@ -95,24 +97,109 @@ function EndpointRow({ ep, isExpanded, onToggle }) {
   );
 }
 
-export default function EndpointsPage() {
-  const [data, setData]         = useState(null);
-  const [loading, setLoading]   = useState(true);
+// ── Repo-specific page (no tabs) ───────────────────────────────────────────────
+function LockedEndpointsView({ data, repoLabel, lockedRepo, matchedOnly, load }) {
+  const [search, setSearch]     = useState('');
+  const [method, setMethod]     = useState('ALL');
+  const [expanded, setExpanded] = useState(null);
+
+  const filtered = useMemo(() => {
+    let source = data?.endpoints || [];
+    if (lockedRepo) source = source.filter(e => e.repo === lockedRepo);
+    if (matchedOnly) source = source.filter(e => e.matchedFrontendCalls?.length > 0);
+    source = source.filter(e => !SKIP_VERSION_DIRS.some(v => e.file?.includes(v)));
+    if (method !== 'ALL') source = source.filter(e => e.method === method);
+    if (search) {
+      const q = search.toLowerCase();
+      source = source.filter(e =>
+        e.path.toLowerCase().includes(q) ||
+        e.file?.toLowerCase().includes(q)
+      );
+    }
+    return source;
+  }, [data, lockedRepo, matchedOnly, method, search]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-gray-100">
+            {repoLabel ? `${repoLabel} — Endpoints` : 'API Endpoints'}
+          </h1>
+          <p className="text-gray-500 text-xs mt-0.5">
+            {matchedOnly ? 'Backend APIs called by the app' : `${repoLabel} backend routes`}
+          </p>
+        </div>
+        <ScanButton type="endpoints" label="Scan Endpoints" onDone={load} />
+      </div>
+
+      {data?.notScanned && (
+        <div className="card p-3 border-l-2 border-amber-500/50 text-amber-300 text-xs">
+          No data yet — run a scan first.
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          className="input w-72"
+          placeholder="Search path or file..."
+          value={search}
+          onChange={e => { setSearch(e.target.value); setExpanded(null); }}
+        />
+        <select className="input" value={method} onChange={e => setMethod(e.target.value)}>
+          {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <span className="text-gray-600 text-xs ml-auto">{filtered.length} results</span>
+      </div>
+
+      <div className="card overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
+              <th className="px-3 py-2 text-left w-20">Method</th>
+              <th className="px-3 py-2 text-left">Path</th>
+              <th className="px-3 py-2 text-left">File</th>
+              <th className="px-3 py-2 text-left w-32">Frontend</th>
+              <th className="px-3 py-2 w-8"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-8 text-center text-gray-600 text-xs">
+                  No results
+                </td>
+              </tr>
+            ) : (
+              filtered.map(ep => (
+                <EndpointRow
+                  key={ep.id}
+                  ep={ep}
+                  showRepo={false}
+                  isExpanded={expanded === ep.id}
+                  onToggle={() => setExpanded(expanded === ep.id ? null : ep.id)}
+                />
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {data?.lastScanned && (
+        <p className="text-gray-600 text-xs">Last scanned: {new Date(data.lastScanned).toLocaleString()}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Generic page with tabs (all repos) ────────────────────────────────────────
+function AllEndpointsView({ data, load }) {
   const [search, setSearch]     = useState('');
   const [method, setMethod]     = useState('ALL');
   const [repoFilter, setRepo]   = useState('ALL');
-  const [tab, setTab]           = useState('backend'); // backend | frontend
+  const [tab, setTab]           = useState('backend');
   const [expanded, setExpanded] = useState(null);
   const [showUnmatched, setShowUnmatched] = useState(false);
-
-  async function load() {
-    setLoading(true);
-    const res = await axios.get('/api/endpoints').catch(() => ({ data: null }));
-    setData(res.data);
-    setLoading(false);
-  }
-
-  useEffect(() => { load(); }, []);
 
   const repos = useMemo(() => {
     if (!data?.endpoints) return ['ALL'];
@@ -124,15 +211,13 @@ export default function EndpointsPage() {
     const source = tab === 'backend' ? (data?.endpoints || []) : (data?.frontendOnlyCalls || []);
     return source.filter(ep => {
       if (method !== 'ALL' && ep.method !== method) return false;
-      if (repoFilter !== 'ALL' && ep.repo !== repoFilter) return false;
+      if (tab === 'backend' && repoFilter !== 'ALL' && ep.repo !== repoFilter) return false;
       if (showUnmatched && tab === 'backend' && ep.matchedFrontendCalls?.length > 0) return false;
       const q = search.toLowerCase();
       if (q && !ep.path.toLowerCase().includes(q) && !ep.file?.toLowerCase().includes(q) && !ep.repo?.toLowerCase().includes(q)) return false;
       return true;
     });
   }, [data, search, method, repoFilter, tab, showUnmatched]);
-
-  if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
 
   return (
     <div className="space-y-4">
@@ -152,7 +237,6 @@ export default function EndpointsPage() {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-800 pb-2">
         {[
           { id: 'backend',  label: `Backend Routes (${data?.stats?.totalBackendRoutes ?? 0})` },
@@ -170,7 +254,6 @@ export default function EndpointsPage() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <input
           className="input w-64"
@@ -178,15 +261,12 @@ export default function EndpointsPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
-
         <select className="input" value={method} onChange={e => setMethod(e.target.value)}>
           {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
-
         <select className="input" value={repoFilter} onChange={e => setRepo(e.target.value)}>
           {repos.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
-
         {tab === 'backend' && (
           <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
             <input
@@ -198,11 +278,9 @@ export default function EndpointsPage() {
             Unmatched only
           </label>
         )}
-
         <span className="text-gray-600 text-xs ml-auto">{filtered.length} results</span>
       </div>
 
-      {/* Table */}
       <div className="card overflow-hidden">
         <table className="w-full">
           <thead>
@@ -227,6 +305,7 @@ export default function EndpointsPage() {
                 <EndpointRow
                   key={ep.id}
                   ep={ep}
+                  showRepo={true}
                   isExpanded={expanded === ep.id}
                   onToggle={() => setExpanded(expanded === ep.id ? null : ep.id)}
                 />
@@ -237,4 +316,35 @@ export default function EndpointsPage() {
       </div>
     </div>
   );
+}
+
+// ── Entry point ────────────────────────────────────────────────────────────────
+export default function EndpointsPage({ lockedRepo = null, repoLabel = null, matchedOnly = false }) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    const res = await axios.get('/api/endpoints').catch(() => ({ data: null }));
+    setData(res.data);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, []);
+
+  if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
+
+  if (lockedRepo || matchedOnly) {
+    return (
+      <LockedEndpointsView
+        data={data}
+        repoLabel={repoLabel}
+        lockedRepo={lockedRepo}
+        matchedOnly={matchedOnly}
+        load={load}
+      />
+    );
+  }
+
+  return <AllEndpointsView data={data} load={load} />;
 }

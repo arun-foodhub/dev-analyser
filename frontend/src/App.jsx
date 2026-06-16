@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import EndpointsPage from './pages/EndpointsPage.jsx';
 import ModulesPage from './pages/ModulesPage.jsx';
+import ApiModulesPage from './pages/ApiModulesPage.jsx';
 import ReposPage from './pages/ReposPage.jsx';
 
 export default function App() {
@@ -14,9 +15,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/endpoints" element={<EndpointsPage />} />
-          <Route path="/modules" element={<ModulesPage />} />
           <Route path="/repos" element={<ReposPage />} />
+          <Route path="/customer-app/endpoints" element={<EndpointsPage key="customer-app-endpoints" repoLabel="Customer App" matchedOnly={true} />} />
+          <Route path="/customer-app/modules" element={<ModulesPage key="customer-app-modules" lockedRepo="customer_app_2.0" repoLabel="Customer App" />} />
+          <Route path="/t2s-api/endpoints" element={<EndpointsPage key="t2s-api-endpoints" lockedRepo="t2s-api" repoLabel="t2s-api" />} />
+          <Route path="/t2s-api/modules" element={<ApiModulesPage key="t2s-api-modules" lockedRepo="t2s-api" repoLabel="t2s-api" />} />
         </Routes>
       </main>
     </div>

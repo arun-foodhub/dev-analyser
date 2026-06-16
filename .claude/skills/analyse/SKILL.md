@@ -22,33 +22,52 @@ Determine: is this frontend, backend, or both?
 - Most features touch both
 
 ### 2. Identify API endpoints involved
-- Read `data/endpoints.json` to find candidate routes
-- Use grep or node one-liners — do NOT browse the file manually:
-  ```bash
-  # Search by keyword
-  node -e "
-    const d = require('./data/endpoints.json');
-    const q = 'KEYWORD';
-    const r = d.endpoints.filter(e => e.path.includes(q) || e.file.includes(q));
-    r.forEach(e => console.log(e.method, e.path, '→', e.repo, e.file + ':' + e.line));
-  "
-  ```
-- Also check `d.frontendOnlyCalls` for calls with no backend match
+```bash
+node -e "
+  const d = require('./data/endpoints.json');
+  const q = 'KEYWORD';
+  const r = d.endpoints.filter(e => e.path.includes(q) || e.file.includes(q));
+  r.forEach(e => console.log(e.method, e.path, '→', e.repo, e.file + ':' + e.line));
+"
+```
+Also check `d.frontendOnlyCalls` for calls with no backend match.
 
-### 3. Map endpoints to repos and files
+### 3. For t2s-api endpoints — identify the owning module
+```bash
+node -e "
+  const d = require('./data/api-modules.json');
+  const t = d.modules['t2s-api'] || [];
+  t.forEach(m => m.controllers.forEach(c => {
+    if (c.name.toLowerCase().includes('KEYWORD'))
+      console.log(m.name, '→', c.name, c.file, c.methods.join(', '));
+  }));
+"
+```
+This tells you which controller handles the logic and which repository/service it uses.
+
+### 4. For frontend — identify the owning module
+```bash
+node -e "
+  const d = require('./data/modules.json');
+  const mods = d.modules['customer_app_2.0'] || [];
+  mods.forEach(m => {
+    const hit = m.screens.some(s => s.name.toLowerCase().includes('KEYWORD'))
+             || m.components.some(c => c.name.toLowerCase().includes('KEYWORD'));
+    if (hit) console.log(m.name, m.dirs.join(', '));
+  });
+"
+```
+
+### 5. Map endpoints to repos and files
 For each endpoint found:
 - Note `repo` — which backend service owns it
 - Note `file` + `line` — exact location
-- Note `matchedFrontendCalls` — which frontend file calls it, and from which line
+- Note `matchedFrontendCalls` — which frontend file calls it
 
-### 4. Read the relevant files
-Open only the specific files identified in step 3. Do NOT browse entire repos.
-- Backend: use the `file` + `line` from the endpoint entry
-- Frontend: use the `file` + `line` from `matchedFrontendCalls`
-- If `data/` is stale (no scan in >2 days), run `npm run scan` first
+### 6. Read the relevant files
+Open only the specific files identified above. Do NOT browse entire repos.
 
-### 5. Produce the action plan
-Output format:
+### 7. Produce the action plan
 ```
 ## Task: [description]
 
@@ -60,25 +79,28 @@ Output format:
 2. [repo]/[file]:[line] — [what and why]
 
 ### API flow
-[frontend file] → [method] [path] → [backend repo] [file]:[line]
+[frontend file] → [method] [path] → [backend repo] [file]:[line] → [controller method]
 
 ### Notes
 [edge cases, migration concerns, related endpoints]
 ```
 
 ## Shortcuts
-- If the task clearly only affects the frontend (UI layout, navigation, styling) → skip step 2 and go straight to `data/modules.json`
-- If the task clearly only affects a backend service and the path is known → skip to step 4
-- For `foodhubglobal` tasks: this is standalone — ignore all other repos entirely
+- Frontend-only task (UI, styling) → go straight to `data/modules.json` (28 module groups, 217 screens)
+- Backend task with known path → skip to step 5
+- `foodhubglobal` tasks → completely standalone, ignore all other repos entirely
 
-## Data sources available
-- `data/endpoints.json` — 4,204 backend routes + 178 frontend calls + 1,426 matched pairs
-- `data/modules.json` — 8 frontend modules, 217 screens
-- `config/repos.json` — repo paths and tech stack
-- Customer app `.memory/api-integration/API_ENDPOINTS.json` — 200 curated endpoints with mock payloads
+## Data sources
+| File | Contains | Key fields |
+|------|---------|-----------|
+| `data/endpoints.json` | ~4,200 backend routes + ~178 frontend calls + ~1,426 matched | `repo`, `file`, `line`, `matchedFrontendCalls` |
+| `data/modules.json` | customer_app_2.0 — 28 module groups, 217 screens | `screens`, `components`, `apiEndpoints` |
+| `data/api-modules.json` | t2s-api — 21 modules, 58 controllers, 47 repos | `controllers[].methods`, `repositories`, `endpoints` |
+| `config/repos.json` | repo paths and tech stack | `localPath`, `technology`, `type` |
 
 ## Hard rules
-- ALWAYS check `data/endpoints.json` before opening any backend file — this saves 80% of search time
-- NEVER assume which repo owns an endpoint — always verify from the scan data
+- ALWAYS check `data/endpoints.json` before opening any backend file
+- NEVER assume which repo owns an endpoint — always verify from scan data
 - `foodhubglobal` is completely independent — never cross-reference it with other repos
-- A "frontend only" call (in `frontendOnlyCalls`) means either the endpoint is in an unscanned repo or the path matching failed — investigate both possibilities
+- A "frontend only" call means either the endpoint is in an unscanned repo or path matching failed
+- t2s-api old version dirs (`v2018_06_12` etc.) are excluded from scan — if a route is missing, check that it's in `v2025_03_17`

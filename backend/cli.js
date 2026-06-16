@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { scanEndpoints } = require('./scanners/endpoint-scanner');
 const { scanModules } = require('./scanners/module-scanner');
+const { scanApiModules } = require('./scanners/api-module-scanner');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const CONFIG_PATH = path.join(__dirname, '..', 'config', 'repos.json');
@@ -30,6 +31,8 @@ async function main() {
     ]);
     writeJSON(path.join(DATA_DIR, 'endpoints.json'), endpointsResult);
     writeJSON(path.join(DATA_DIR, 'modules.json'), modulesResult);
+    const apiModulesResult = await scanApiModules(repos, endpointsResult);
+    writeJSON(path.join(DATA_DIR, 'api-modules.json'), apiModulesResult);
     console.log('\n✅ Full scan complete.\n');
     return;
   }
@@ -48,6 +51,18 @@ async function main() {
     return;
   }
 
+  if (command === 'scan:api-modules') {
+    const endpointsData = (() => {
+      const p = path.join(DATA_DIR, 'endpoints.json');
+      if (!fs.existsSync(p)) return null;
+      try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
+    })();
+    const result = await scanApiModules(repos, endpointsData);
+    writeJSON(path.join(DATA_DIR, 'api-modules.json'), result);
+    console.log('\n✅ API module scan complete.\n');
+    return;
+  }
+
   if (command === 'status') {
     for (const repo of repos) {
       const exists = fs.existsSync(repo.localPath);
@@ -63,9 +78,10 @@ Dev Analyser CLI
 Usage: node cli.js <command>
 
 Commands:
-  scan              Scan all repos (endpoints + modules)
+  scan              Scan all repos (endpoints + modules + api-modules)
   scan:endpoints    Scan backend + frontend API endpoints only
   scan:modules      Scan frontend module structure only
+  scan:api-modules  Scan backend repo modules (controllers, repos, services)
   status            Check which repos are available locally
 `);
 }

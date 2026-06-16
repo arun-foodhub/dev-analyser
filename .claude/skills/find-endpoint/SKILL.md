@@ -1,11 +1,11 @@
 ---
 name: find-endpoint
-description: Look up a specific API endpoint across all repos — find where it is defined in the backend, which frontend files call it, and what the request/response shape looks like. Use when the user provides a path like /consumer/v1/orders or an endpoint name.
+description: Look up a specific API endpoint across all repos — find where it is defined in the backend, which frontend files call it, what controller/method handles it, and what the request/response shape looks like. Use when the user provides a path like /consumer/v1/orders or an endpoint name.
 ---
 
 # Find Endpoint
 
-Locate a specific API endpoint end-to-end: backend definition → frontend usage → payload shape.
+Locate a specific API endpoint end-to-end: backend definition → frontend usage → controller method → payload shape.
 
 ## Execution
 
@@ -13,18 +13,13 @@ Locate a specific API endpoint end-to-end: backend definition → frontend usage
 ```bash
 node -e "
   const d = require('./data/endpoints.json');
-  const q = process.argv[1].toLowerCase();
+  const q = 'SEARCH_TERM'.toLowerCase();
 
-  // Backend routes
   const be = d.endpoints.filter(e =>
     e.path.toLowerCase().includes(q) ||
     e.normalizedPath.toLowerCase().includes(q)
   );
-
-  // Frontend only calls
-  const fe = d.frontendOnlyCalls.filter(e =>
-    e.path.toLowerCase().includes(q)
-  );
+  const fe = d.frontendOnlyCalls.filter(e => e.path.toLowerCase().includes(q));
 
   console.log('=== Backend routes (' + be.length + ') ===');
   be.forEach(e => {
@@ -39,33 +34,50 @@ node -e "
 
   console.log('=== Frontend only (' + fe.length + ') ===');
   fe.forEach(e => console.log(e.method, e.path, '|', e.file + ':' + e.line));
-" -- SEARCH_TERM
+"
 ```
 
-Replace `SEARCH_TERM` with the path segment the user provided.
+### Step 2: For t2s-api routes — find the owning controller
+```bash
+node -e "
+  const d = require('./data/api-modules.json');
+  const t = d.modules['t2s-api'] || [];
+  const q = 'SEARCH_TERM'.toLowerCase();
+  t.forEach(m => {
+    const eps = m.endpoints.filter(e => e.path.toLowerCase().includes(q));
+    if (eps.length) {
+      console.log('Module:', m.name);
+      console.log('Controllers:', m.controllers.map(c => c.name).join(', '));
+      eps.forEach(e => console.log(' ', e.method, e.path, e.file + ':' + e.line));
+    }
+  });
+"
+```
 
-### Step 2: Report what was found
-
-For each matched backend route, report:
+### Step 3: Report what was found
 ```
 METHOD  /path/to/endpoint
-  Backend:  [repo] [file]:[line]
-  Frontend: [file]:[line]  →  [rawCall]
-  Payload:  [mockPayload if available, else "not documented"]
-  Response: [mockResponse if available, else "not documented"]
+  Backend:    [repo] [file]:[line]
+  Controller: [ControllerName] → [methodName()] (t2s-api only)
+  Module:     [semantic module name, e.g. "Orders & Checkout"]
+  Frontend:   [file]:[line]  →  [rawCall]
+  Payload:    [mockPayload if available, else "not documented"]
+  Response:   [mockResponse if available, else "not documented"]
 ```
 
-### Step 3: Open the files (if user wants to see the code)
-Use the exact file paths and line numbers from step 2.
+### Step 4: Open the files (if user wants to see the code)
+Use the exact file paths and line numbers from above.
 
-### Step 4: If not found in scan data
-The endpoint may be in `foodhubglobal` (not connected to the main app) or the scan data may be stale.
-- If stale: run `npm run scan:endpoints` first
-- If `foodhubglobal`: search directly in that repo — it's a standalone PHP codebase
-- If still not found: the endpoint may be defined dynamically or behind a framework layer not yet covered by the scanner
+### Step 5: If not found in scan data
+- **Stale data**: run `npm run scan:endpoints` first
+- **t2s-api old version**: route may only exist in an old version dir (`v2018_06_12` etc.) — these are excluded from scan by design
+- **foodhubglobal**: search directly in that standalone PHP repo — it's not in scan data
+- **Dynamic routes**: endpoint may be defined dynamically or behind a framework layer not covered by the scanner
 
 ## What to output
 - Exact file + line in the backend repo
 - All frontend files that call it
+- The semantic module it belongs to (from `data/api-modules.json`) if in t2s-api
+- The controller + method that handles it
 - The mock payload/response if available from `.memory/api-integration/API_ENDPOINTS.json`
-- The tech stack of the owning repo (so the user knows what language they're about to read)
+- The tech stack of the owning repo (so the user knows what language they're reading)

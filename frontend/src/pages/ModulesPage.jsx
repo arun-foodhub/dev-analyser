@@ -85,11 +85,11 @@ function ModuleCard({ mod }) {
   );
 }
 
-export default function ModulesPage() {
+export default function ModulesPage({ lockedRepo = null, repoLabel = null }) {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState('');
-  const [repoTab, setRepoTab] = useState(null);
+  const [repoTab, setRepoTab] = useState(lockedRepo || null);
 
   async function load() {
     setLoading(true);
@@ -103,19 +103,24 @@ export default function ModulesPage() {
   const repoNames = useMemo(() => data?.modules ? Object.keys(data.modules) : [], [data]);
 
   useEffect(() => {
-    if (repoNames.length && !repoTab) setRepoTab(repoNames[0]);
+    if (!lockedRepo && repoNames.length && !repoTab) setRepoTab(repoNames[0]);
   }, [repoNames]);
 
+  const activeRepo = lockedRepo || repoTab;
+
   const currentModules = useMemo(() => {
-    if (!repoTab || !data?.modules?.[repoTab]) return [];
+    if (!activeRepo || !data?.modules?.[activeRepo]) return [];
     const q = search.toLowerCase();
-    return data.modules[repoTab].filter(m =>
+    return data.modules[activeRepo].filter(m =>
       !q ||
       m.name.toLowerCase().includes(q) ||
       m.dirs.some(d => d.toLowerCase().includes(q)) ||
+      m.screens.some(s => s.name.toLowerCase().includes(q)) ||
+      m.components.some(c => c.name.toLowerCase().includes(q)) ||
+      m.services.some(s => s.name.toLowerCase().includes(q)) ||
       m.apiEndpoints.some(ep => ep.path.toLowerCase().includes(q))
     );
-  }, [data, repoTab, search]);
+  }, [data, activeRepo, search]);
 
   if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
 
@@ -123,7 +128,9 @@ export default function ModulesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-gray-100">App Modules</h1>
+          <h1 className="text-lg font-bold text-gray-100">
+            {repoLabel ? `${repoLabel} — Modules` : 'App Modules'}
+          </h1>
           <p className="text-gray-500 text-xs mt-0.5">
             Frontend codebase broken down by feature module
           </p>
@@ -154,8 +161,8 @@ export default function ModulesPage() {
             ))}
           </div>
 
-          {/* Repo tabs */}
-          {repoNames.length > 1 && (
+          {/* Repo tabs — only shown when not locked to a single repo */}
+          {!lockedRepo && repoNames.length > 1 && (
             <div className="flex gap-1 border-b border-gray-800 pb-2">
               {repoNames.map(name => (
                 <button

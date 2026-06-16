@@ -3,22 +3,61 @@ const path = require('path');
 
 // Known module groupings based on common React Native folder patterns
 const MODULE_HINTS = {
-  auth: { keywords: ['auth', 'login', 'register', 'signup', 'signin', 'password', 'forgot', 'otp', 'verify'], label: 'Authentication' },
-  home: { keywords: ['home', 'dashboard', 'landing', 'welcome', 'main'], label: 'Home / Dashboard' },
-  menu: { keywords: ['menu', 'food', 'item', 'product', 'catalogue', 'catalog', 'dish'], label: 'Menu & Items' },
-  cart: { keywords: ['cart', 'basket', 'bag', 'order-summary', 'checkout'], label: 'Cart & Checkout' },
-  order: { keywords: ['order', 'orders', 'tracking', 'track', 'history', 'past'], label: 'Orders & Tracking' },
-  payment: { keywords: ['payment', 'pay', 'card', 'wallet', 'billing', 'transaction'], label: 'Payments' },
-  profile: { keywords: ['profile', 'account', 'user', 'settings', 'preferences', 'address'], label: 'Profile & Settings' },
-  store: { keywords: ['store', 'restaurant', 'vendor', 'shop', 'outlet'], label: 'Store / Restaurant' },
+  // Auth — must come before profile to avoid 'user' cross-match
+  auth: { keywords: ['auth', 'login', 'register', 'signup', 'signin', 'password', 'forgot', 'otp', 'verify', 'enroll', 'recaptcha', 'captcha', 'verified'], label: 'Authentication' },
+
+  // Location & Address (before profile, which used to claim 'address')
+  address: { keywords: ['address', 'location', 'locationfetch', 'locationrequest', 'homeaddress', 'map', 'postcode', 'geo', 'geocode'], label: 'Location & Address' },
+
+  // Loyalty, gifts, savings
+  loyalty: { keywords: ['loyalty', 'loyaltypoint', 'reward', 'point', 'giftcard', 'gift', 'savings', 'totalsavings', 'voucher'], label: 'Loyalty & Rewards' },
+
+  // Offers, deals, flash sales, promotions
+  offers: { keywords: ['offer', 'coupon', 'discount', 'deal', 'promo', 'promotion', 'flash', 'flashsale', 'upsell', 'upselling'], label: 'Offers & Promotions' },
+
+  // Dine-in and table reservations
+  dinein: { keywords: ['dine', 'dinein', 'table', 'tablereservation', 'booking', 'reservation', 'kiosk'], label: 'Dine-In & Table Booking' },
+
+  // Reviews and ratings (separate from support)
+  review: { keywords: ['review', 'rating', 'appfeedback', 'rate', 'reviewmodule'], label: 'Reviews & Ratings' },
+
+  // Analytics and logging
+  analytics: { keywords: ['analytics', 'analytic', 'fhlogs', 'logs', 'segment', 'amplitude', 'tracking', 'event', 'mixpanel'], label: 'Analytics & Logging' },
+
+  // Pre-orders, event orders, scheduled orders
+  preorder: { keywords: ['preorder', 'eventorder', 'event', 'schedule', 'advance', 'timed'], label: 'Pre-orders & Event Ordering' },
+
+  // Onboarding / splash
+  onboarding: { keywords: ['splash', 'onboarding', 'intro', 'walkthrough', 'tour', 'welcome'], label: 'Onboarding / Splash' },
+
+  // In-app WebView screens
+  webview: { keywords: ['webview', 'browser', 'commonwebview', 'cookiespolicy', 'cookiepolicy', 'blog', 'blogmodule'], label: 'WebView & Web Content' },
+
+  // Device management and code push
+  device: { keywords: ['device', 'codepush', 'deviceinfo', 'hardware'], label: 'Device & Updates' },
+
+  // Language / localisation
+  language: { keywords: ['language', 'locale', 'localization', 'localisation', 'i18n', 'translation', 'localizationmodule'], label: 'Language & Localisation' },
+
+  // Theming and brand UI
+  theme: { keywords: ['theme', 'brand', 'appearance', 'uimodule', 'configurator', 'design', 'color'], label: 'Theme & Branding' },
+
+  // Core app modules
+  home: { keywords: ['home', 'dashboard', 'landing', 'main', 'top10', 'brandhome', 'reacthome'], label: 'Home / Dashboard' },
+  menu: { keywords: ['menu', 'food', 'item', 'product', 'catalogue', 'catalog', 'dish', 'menumodule'], label: 'Menu & Items' },
+  cart: { keywords: ['cart', 'basket', 'bag', 'order-summary', 'checkout', 'quickcheckout'], label: 'Cart & Checkout' },
+  order: { keywords: ['order', 'orders', 'tracking', 'track', 'history', 'past', 'ordermanagement', 'orderhelp'], label: 'Orders & Tracking' },
+  payment: { keywords: ['payment', 'pay', 'card', 'wallet', 'billing', 'transaction', 'savedcard'], label: 'Payments' },
+  profile: { keywords: ['profile', 'account', 'user', 'settings', 'preferences'], label: 'Profile & Settings' },
+  store: { keywords: ['store', 'restaurant', 'vendor', 'shop', 'outlet', 'takeaway'], label: 'Store / Restaurant' },
   search: { keywords: ['search', 'explore', 'discover', 'browse', 'filter'], label: 'Search & Discovery' },
-  notification: { keywords: ['notification', 'alert', 'push', 'inbox'], label: 'Notifications' },
-  support: { keywords: ['support', 'help', 'contact', 'faq', 'feedback', 'review', 'rating'], label: 'Support & Feedback' },
+  notification: { keywords: ['notification', 'notify', 'alert', 'inbox', 'push'], label: 'Notifications' },
+  support: { keywords: ['support', 'help', 'contact', 'faq', 'helpdesk', 'complaint'], label: 'Support' },
   navigation: { keywords: ['navigation', 'navigator', 'router', 'tab', 'drawer', 'stack'], label: 'Navigation' },
   components: { keywords: ['components', 'component', 'ui', 'shared', 'common', 'widgets'], label: 'Shared Components' },
   services: { keywords: ['services', 'service', 'api', 'network', 'http'], label: 'Services / API Layer' },
   utils: { keywords: ['utils', 'util', 'helpers', 'helper', 'hooks', 'hook', 'constants'], label: 'Utilities & Hooks' },
-  redux: { keywords: ['redux', 'store', 'reducers', 'actions', 'slice', 'sagas', 'context'], label: 'State Management' },
+  redux: { keywords: ['redux', 'reducers', 'actions', 'slice', 'sagas', 'context', 'state-core'], label: 'State Management' },
 };
 
 function readFileSafe(filePath) {
@@ -90,20 +129,22 @@ function buildModuleTree(repoPath, name) {
   if (!fs.existsSync(repoPath)) return [];
 
   const exts = ['.js', '.jsx', '.ts', '.tsx'];
-  const exclude = ['node_modules', 'android', 'ios', '.git', 'dist', 'build'];
+  const exclude = ['node_modules', 'android', 'ios', '.git', 'dist', 'build', 'Library', '__tests__', '__mocks__'];
   const files = walkDir(repoPath, exts, exclude);
 
-  // Build directory tree
+  // Build directory tree — use up to 3 directory levels so deep module dirs
+  // like old_code/AppModules/AddressModule get their own key and classify correctly.
   const dirMap = {};
   for (const file of files) {
     const rel = path.relative(repoPath, file);
     const parts = rel.split(path.sep);
     if (parts.length < 2) continue;
 
-    const topLevel = parts[0];
-    const secondLevel = parts.length > 2 ? parts[1] : null;
+    const p0 = parts[0];
+    const p1 = parts.length > 2 ? parts[1] : null;
+    const p2 = parts.length > 3 ? parts[2] : null;
 
-    const key = secondLevel ? `${topLevel}/${secondLevel}` : topLevel;
+    const key = p2 ? `${p0}/${p1}/${p2}` : p1 ? `${p0}/${p1}` : p0;
     if (!dirMap[key]) {
       dirMap[key] = {
         dirPath: key,
@@ -180,7 +221,7 @@ function buildModuleTree(repoPath, name) {
   const modules = Object.values(moduleMap)
     .filter(m => m.fileCount > 0)
     .sort((a, b) => {
-      const priority = ['auth', 'home', 'menu', 'cart', 'order', 'payment', 'profile', 'store', 'search'];
+      const priority = ['auth', 'address', 'home', 'menu', 'cart', 'order', 'payment', 'profile', 'store', 'search', 'loyalty', 'offers', 'dinein', 'review', 'preorder', 'notification', 'support', 'analytics', 'onboarding', 'device', 'language', 'theme', 'webview'];
       const ai = priority.indexOf(a.category);
       const bi = priority.indexOf(b.category);
       if (ai !== -1 && bi !== -1) return ai - bi;

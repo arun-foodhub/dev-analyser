@@ -5,6 +5,7 @@ const path = require('path');
 
 const { scanEndpoints } = require('./scanners/endpoint-scanner');
 const { scanModules } = require('./scanners/module-scanner');
+const { scanApiModules } = require('./scanners/api-module-scanner');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -13,6 +14,7 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const CONFIG_PATH = path.join(__dirname, '..', 'config', 'repos.json');
 const ENDPOINTS_PATH = path.join(DATA_DIR, 'endpoints.json');
 const MODULES_PATH = path.join(DATA_DIR, 'modules.json');
+const API_MODULES_PATH = path.join(DATA_DIR, 'api-modules.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -83,12 +85,33 @@ app.post('/api/scan/endpoints', async (req, res) => {
   }
 });
 
+// API modules data
+app.get('/api/api-modules', (req, res) => {
+  const data = readJSON(API_MODULES_PATH);
+  if (!data) return res.json({ modules: {}, stats: {}, lastScanned: null, notScanned: true });
+  res.json(data);
+});
+
 // Trigger module scan
 app.post('/api/scan/modules', async (req, res) => {
   try {
     const repos = loadConfig();
     const result = await scanModules(repos);
     writeJSON(MODULES_PATH, result);
+    res.json({ success: true, stats: result.stats, lastScanned: result.lastScanned });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Trigger API module scan
+app.post('/api/scan/api-modules', async (req, res) => {
+  try {
+    const repos = loadConfig();
+    const endpointsData = readJSON(ENDPOINTS_PATH);
+    const result = await scanApiModules(repos, endpointsData);
+    writeJSON(API_MODULES_PATH, result);
     res.json({ success: true, stats: result.stats, lastScanned: result.lastScanned });
   } catch (err) {
     console.error(err);
@@ -106,10 +129,14 @@ app.post('/api/scan/all', async (req, res) => {
     ]);
     writeJSON(ENDPOINTS_PATH, endpointsResult);
     writeJSON(MODULES_PATH, modulesResult);
+    // api-modules depends on endpoints, run after
+    const apiModulesResult = await scanApiModules(repos, endpointsResult);
+    writeJSON(API_MODULES_PATH, apiModulesResult);
     res.json({
       success: true,
       endpoints: endpointsResult.stats,
       modules: modulesResult.stats,
+      apiModules: apiModulesResult.stats,
       lastScanned: new Date().toISOString(),
     });
   } catch (err) {

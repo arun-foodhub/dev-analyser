@@ -37,7 +37,10 @@ const PATTERNS = {
       { re: /\$router->group\s*\([^)]*'prefix'\s*=>\s*['"]([^'"]+)['"]/gi, pathGroup: 1, method: 'GROUP' },
     ],
     fileGlobs: ['php'],
-    exclude: ['vendor', 'node_modules', '.git', 'storage', 'bootstrap/cache', 'public'],
+    exclude: [
+      'vendor', 'node_modules', '.git', 'storage', 'bootstrap/cache', 'public',
+      'v2018_06_12', 'v2019_08_27', 'v2020_10_05', 'v2021_02_25', 'v2022_05_05',
+    ],
     priorityDirs: ['app/Http', 'routes', 'app/routes'],
   },
 
