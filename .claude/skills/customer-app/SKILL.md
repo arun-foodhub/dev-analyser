@@ -207,6 +207,151 @@ riskData = {
 
 ---
 
+## 9. Known URL Routing Bugs
+
+### Safari `&` in slug → intermittent 404
+
+**Symptom:** `pizza-&-pint` URL occasionally 404s in Safari only. `pizza-and-pint` and `pizza-pint` always work. Not reproducible locally — server only, occasional.
+
+**Root cause:** Two-layer encoding mismatch.
+- `window.location.pathname` → decoded `pizza-&-pint`
+- `window.location.href` → Safari percent-encodes to `pizza-%26-pint`
+
+In `AppNavigation.js:131`, `currentUrl.replace(currentPath, replacedPath)` finds **no match** (searching `&` inside a string that has `%26`). So `window.location.href` navigates to the `%26` URL, which the server's rewrite rule doesn't match → 404.
+
+**Race condition:** The `useEffect([routeNameChange])` and React Navigation's own `history.replaceState` both run on init. Their order is non-deterministic, making the bug intermittent.
+
+**Files involved:**
+
+| File | Lines | Role |
+|------|-------|------|
+| `old_code/CustomerApp/Navigation/AppNavigation.js` | 124–137 | Bug — `useEffect` that hard-redirects |
+| `old_code/CustomerApp/Navigation/AppNavigation.js` | 384 | `setRouteNameChange` that triggers the effect |
+| `old_code/AppModules/RouterModule/Utils/RouterConfig.js` | 15–26 | Layer 1 parse — already cleans slug correctly (not the bug) |
+| `old_code/FoodHubApp/TakeawayListModule/Utils/Helper.js` | 2083–2107 | `cleanSpecialCharForSeo` — `&` → `and` conversion |
+| `old_code/T2SBaseModule/Utils/helpers.js` | 1468–1477 | `seoFriendlyUrl` — calls `cleanSpecialCharForSeo` |
+| `old_code/AppModules/RouterModule/Utils/Constants.js` | 89–100 | `seoFriendlyRouteName` — routes that trigger the check |
+
+**Fix (`AppNavigation.js:129-134`):**
+```js
+// BEFORE (buggy):
+let currentUrl = window?.location?.href || '';
+const replacedPath = seoFriendlyUrl(currentPath);
+currentUrl = currentUrl.replace(currentPath, replacedPath);
+if (currentPath !== replacedPath) {
+    window.location.href = currentUrl;   // hard reload + encoding mismatch
+}
+
+// AFTER (fix):
+const replacedPath = seoFriendlyUrl(currentPath);
+if (currentPath !== replacedPath) {
+    window.history.replaceState(null, '', replacedPath);  // URL bar only, no reload
+}
+```
+
+`RouterConfig.js` parse functions already clean the React Navigation internal state. Only the URL bar needs updating — no page reload required. `replaceWindowRoute` elsewhere already uses `history.replaceState` correctly.
+
+**Secondary smell:** `old_code/FoodHubApp/TakeawayListModule/Utils/Helper.js:2096-2099` — after `replace(/&/g, 'and')`, the next regex `[^a-zA-Z0-9\-\/&:.#]+` still allows `&` through. Harmless today but fragile.
+
+---
+
+## 10. Authentication System
+
+### How tokens are created and stored
+
+**Login** calls `POST /consumer/login` (or OTP/social variants) in `AuthNetwork.js`. Password is **MD5-hashed client-side** before sending.
+
+Response `{ access_token, refresh_token, token_type: "Bearer", access_expires_in, refresh_expires_in }` is stored in:
+- **Redux** (`userSessionState`) — source of truth on all platforms
+- **Cookies** (web only via `CookiesHelper.web.js`) — `CookiesHelper.js` is a no-op stub on native
+
+TTL values from the API are converted to **absolute Unix timestamps** immediately via `addTimeDeviceMoment(ttl_seconds)`.
+
+**Key selectors** (`SessionManagerSelectors.js`):
+```js
+selectUserAccessToken          → raw access_token string
+selectRefreshToken             → raw refresh_token string
+selectUserAccessTokenExpires   → absolute expiry timestamp
+getAccessTokenWithTokenType    → "Bearer <token>" (for Authorization header)
+```
+
+### How tokens are attached to requests
+
+All API calls go through `SessionNetworkWrapper.js`. `addJWTToRequest()` adds:
+```
+Authorization: Bearer <access_token>
+passport: 1
+```
+**60-second pre-flight expiry check** — if `access_token_expires_in < now + 60s`, it silently refreshes before making the call.
+
+To skip auth on a specific call: set `isAccessTokenRequired: false` in the network config object.
+
+### Refresh token flow
+
+Triggered by error code **4012** (`UNAUTHORIZED_ACCESS`) from any backend service:
+1. `POST /oauth/token/refresh` with `{ refresh_token }` body + current `Authorization` header
+2. Redux and cookies updated with new token pair
+3. Original failed request is retried with new token
+4. If 4012 again after refresh → **forced logout** (`PERSISTENT_401_AFTER_REFRESH`)
+
+**Single-flight** — only one refresh in flight at a time. Concurrent 4012s all wait for the same refresh result.
+
+**Error code reference:**
+| Code | Action |
+|------|--------|
+| 4011 | Force logout |
+| 4012 | Trigger refresh → retry |
+| 4013 | Force logout |
+| 4014 | Force logout |
+| 4016 | Force logout + show banned message |
+
+### How downstream services validate the token
+
+The frontend sends the same `Authorization: Bearer <token>` to every service. Each validates it differently:
+
+| Service | Validation method |
+|---------|-----------------|
+| **t2s-api** | Laravel Passport middleware — verify HS256 signature + check `jti` in `oauth_access_tokens` table (revoked=0) |
+| **falcon** | AWS API Gateway `consumerJwtAuthorizer` Lambda — `jwt.verify(token, JWT_KEY)` locally, no DB call |
+| **falcon-payment-service** | `jwtAuthorizer` Lambda — JWT verify + DB check on `config` table (store active) + `oauth_access_tokens` (jti exists) |
+| **t2s-mcs** | Own Redis-backed auth (5-min tokens, per-session secrets). For consumer routes: calls `AUTH_URL` (t2s-api) to validate |
+
+All of t2s-api, falcon, falcon-payment-service share the **same `JWT_KEY`** (from AWS SSM Parameter Store). t2s-mcs is a completely separate trust boundary.
+
+### Social login
+
+All providers call `POST /consumer/social/login` (or `/v2`, `/v3`) with `{ type, token }`. The backend exchanges the provider token for the standard `access_token + refresh_token` pair — no provider tokens are stored in the app after that.
+
+| Provider | Package | What's sent to backend |
+|----------|---------|----------------------|
+| Google | `@react-native-google-signin` | `accessToken` from `GoogleSignin.getTokens()` |
+| Facebook | `react-native-facebook-sdk` | `AccessToken` from `AccessToken.getCurrentAccessToken()` |
+| Apple | `@react-native-apple-authentication` | `authorizationCode` from `appleAuth.performRequest()` |
+| Microsoft | `react-native-app-auth` | token from `AuthManager.signInAsync()` |
+
+### External systems calling t2s-api (non-frontend)
+
+When the task involves a third-party or service-to-service integration (not the customer app), the mechanisms differ from the consumer Bearer token flow:
+
+| Caller type | Mechanism | Key header/param |
+|-------------|-----------|-----------------|
+| External service (new) | OAuth2 `client_credentials` — `POST /oauth/client` then `POST /v1/oauth/token` | `Authorization: Bearer <token>` + `passport: 1` |
+| POS / hardware terminal | License key — `md5(contact_no+host+app_name)` | `?api_token=<key>` or `Authorization: <key>` (no Bearer) |
+| Internal cross-service | Super auth — `POST /oauth/supper/auth` exchanges any JWT for Passport token | Same Bearer pattern |
+| Payment/SMS providers | Inbound webhooks — static env-var tokens per endpoint | `HOOK_API_KEY`, `REFUND_STATUS_HOOK_API_KEY`, etc. |
+
+Unprotected routes any caller can hit without auth: `cart/*`, `menu/*`, `location/*`, `misc/*`.
+
+Full detail: memory `t2s_api_external_auth.md` and analyse skill § t2s-api external access.
+
+---
+
+### Guest users
+
+`authState.guestUser` boolean tracks guest state. Guest tokens stored in `guestUserToken` / `guestUserTokenFromRoute`. On successful login: `RESET_GUEST_USER` action clears the guest state.
+
+---
+
 ## Key constraints (call these out in code review)
 
 - `old_code/` — no refactors, no restructuring; fixes and features only

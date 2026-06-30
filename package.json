@@ -12,6 +12,8 @@
     "scan": "cd backend && node cli.js scan",
     "scan:endpoints": "cd backend && node cli.js scan:endpoints",
     "scan:modules": "cd backend && node cli.js scan:modules",
+    "scan:foodhubglobal": "cd backend && node cli.js scan:foodhubglobal",
+    "scan:tasksummaries": "cd backend && node cli.js scan:tasksummaries",
     "status": "cd backend && node cli.js status",
     "setup": "npm install && cd backend && npm install && cd ../frontend && npm install && echo '\\n✅ Setup complete. Run: npm run dev'",
     "install:all": "cd backend && npm install && cd ../frontend && npm install"

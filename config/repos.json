@@ -71,15 +71,15 @@
       "name": "foodhubglobal",
       "displayName": "FoodHub Global (Monolith)",
       "type": "monolith",
-      "technology": "php",
+      "technology": "nextjs-nx",
       "gitUrl": "https://github.com/uktech/foodhubglobal.git",
       "localPath": "/Users/arun/Desktop/Workspace/foodhubglobal",
       "branches": [],
-      "description": "Standalone monolith — both frontend and backend in same repo. NOT connected to any other repo.",
-      "color": "#6B7280",
+      "description": "SiteMaster — Nx monorepo with Next.js 14, Chakra UI, Redux Toolkit. SEO template management for restaurant/franchise websites.",
+      "color": "#F97316",
       "priority": "low",
       "standalone": true,
-      "notes": "This repo is completely independent. Do not assume any API integration with t2s-api, falcon, or the customer app."
+      "notes": "Nx 21 workspace. App lives in apps/sitemaster/src/. Uses App Router, MySQL, NextAuth. Completely independent — no API integration with t2s-api, falcon, or the customer app."
     }
   ]
 }

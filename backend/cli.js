@@ -4,6 +4,8 @@ const path = require('path');
 const { scanEndpoints } = require('./scanners/endpoint-scanner');
 const { scanModules } = require('./scanners/module-scanner');
 const { scanApiModules } = require('./scanners/api-module-scanner');
+const { scanFoodhubglobal } = require('./scanners/foodhubglobal-scanner');
+const { scanTaskSummaries } = require('./scanners/tasksummary-scanner');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const CONFIG_PATH = path.join(__dirname, '..', 'config', 'repos.json');
@@ -63,6 +65,20 @@ async function main() {
     return;
   }
 
+  if (command === 'scan:foodhubglobal') {
+    const result = scanFoodhubglobal(repos);
+    writeJSON(path.join(DATA_DIR, 'foodhubglobal-modules.json'), result);
+    console.log('\n✅ FoodHub Global scan complete.\n');
+    return;
+  }
+
+  if (command === 'scan:tasksummaries') {
+    const result = scanTaskSummaries(repos);
+    writeJSON(path.join(DATA_DIR, 'tasksummaries.json'), result);
+    console.log(`\n✅ Task summaries scanned: ${result.total} tasks.\n`);
+    return;
+  }
+
   if (command === 'status') {
     for (const repo of repos) {
       const exists = fs.existsSync(repo.localPath);
@@ -78,11 +94,13 @@ Dev Analyser CLI
 Usage: node cli.js <command>
 
 Commands:
-  scan              Scan all repos (endpoints + modules + api-modules)
-  scan:endpoints    Scan backend + frontend API endpoints only
-  scan:modules      Scan frontend module structure only
-  scan:api-modules  Scan backend repo modules (controllers, repos, services)
-  status            Check which repos are available locally
+  scan                Scan all repos (endpoints + modules + api-modules)
+  scan:endpoints      Scan backend + frontend API endpoints only
+  scan:modules        Scan frontend module structure only
+  scan:api-modules    Scan backend repo modules (controllers, repos, services)
+  scan:foodhubglobal  Scan FoodHub Global Next.js app structure
+  scan:tasksummaries  Parse task summary docs from foodhubglobal/tasksummary/
+  status              Check which repos are available locally
 `);
 }
 

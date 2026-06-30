@@ -7,3 +7,5 @@ frontend/dist/
 .env
 .env.local
 coverage/
+config/jira-config.json
+tasks/*.md

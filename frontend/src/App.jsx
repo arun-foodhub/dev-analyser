@@ -6,6 +6,9 @@ import EndpointsPage from './pages/EndpointsPage.jsx';
 import ModulesPage from './pages/ModulesPage.jsx';
 import ApiModulesPage from './pages/ApiModulesPage.jsx';
 import ReposPage from './pages/ReposPage.jsx';
+import FoodHubModulesPage from './pages/FoodHubModulesPage.jsx';
+import FoodHubTasksPage from './pages/FoodHubTasksPage.jsx';
+import JiraPage from './pages/JiraPage.jsx';
 
 export default function App() {
   return (
@@ -20,6 +23,9 @@ export default function App() {
           <Route path="/customer-app/modules" element={<ModulesPage key="customer-app-modules" lockedRepo="customer_app_2.0" repoLabel="Customer App" />} />
           <Route path="/t2s-api/endpoints" element={<EndpointsPage key="t2s-api-endpoints" lockedRepo="t2s-api" repoLabel="t2s-api" />} />
           <Route path="/t2s-api/modules" element={<ApiModulesPage key="t2s-api-modules" lockedRepo="t2s-api" repoLabel="t2s-api" />} />
+          <Route path="/jira" element={<JiraPage />} />
+          <Route path="/foodhubglobal/modules" element={<FoodHubModulesPage />} />
+          <Route path="/foodhubglobal/tasks" element={<FoodHubTasksPage />} />
         </Routes>
       </main>
     </div>

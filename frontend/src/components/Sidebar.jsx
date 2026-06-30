@@ -27,6 +27,23 @@ const GROUPS = [
     ],
   },
   {
+    id: 'jira',
+    label: 'JIRA',
+    labelColor: 'text-blue-400',
+    items: [
+      { to: '/jira', label: 'Tickets & Tasks', icon: '⬢' },
+    ],
+  },
+  {
+    id: 'foodhubglobal',
+    label: 'FoodHub Global',
+    labelColor: 'text-orange-400',
+    items: [
+      { to: '/foodhubglobal/modules', label: 'App Structure', icon: '⬡' },
+      { to: '/foodhubglobal/tasks',   label: 'Task History',  icon: '◉' },
+    ],
+  },
+  {
     id: 'bottom',
     items: [
       { to: '/repos', label: 'Repos', icon: '⌥' },
